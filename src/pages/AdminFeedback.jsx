@@ -18,7 +18,7 @@ export default function AdminFeedback() {
     const fetchFeedbacks = async () => {
       try {
         const res = await fetch(`${BASE_URL}/api/feedback`);
-        if (!res.ok) throw new Error("Failed to fetch feedbacks");
+        if (!res.ok) throw new Error("Failed too fetch feedbacks");
         const data = await res.json();
 
         const formatted = data.map((item) => ({
