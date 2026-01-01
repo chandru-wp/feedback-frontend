@@ -15,6 +15,13 @@ export default function AdminFeedback() {
 
   // ✅ Fetch feedbacks from backend
   useEffect(() => {
+    // ✅ Check if user is admin
+    const isAdmin = localStorage.getItem("isAdmin");
+    if (!isAdmin) {
+      navigate("/login");
+      return;
+    }
+
     const fetchFeedbacks = async () => {
       try {
         const res = await fetch(`${BASE_URL}/api/feedback`);
@@ -45,7 +52,7 @@ export default function AdminFeedback() {
     // ✅ Load form templates from localStorage
     const savedForms = JSON.parse(localStorage.getItem("feedbackForms")) || [];
     setForms(savedForms);
-  }, []);
+  }, [navigate]);
 
   // ✅ Logout
   const handleLogout = () => {
@@ -100,7 +107,7 @@ export default function AdminFeedback() {
       // Delete all feedback entries one by one (for safety)
       await Promise.all(
         allFeedbacks.map((f) =>
-          fetch(`${BASE_URL}/api/feedback ${f.id}`, { method: "DELETE" })
+          fetch(`${BASE_URL}/api/feedback/${f.id}`, { method: "DELETE" })
         )
       );
 

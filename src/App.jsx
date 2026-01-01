@@ -9,7 +9,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<FeedbackForm />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/admin-feedback" element={<AdminFeedback />} />
+      <Route path="/admin-feedback" element={<AdminFeedback/>} />
     </Routes>
   );
 }
