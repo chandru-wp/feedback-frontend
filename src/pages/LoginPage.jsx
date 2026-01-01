@@ -1,4 +1,4 @@
- import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
@@ -21,7 +21,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const endpoint = loginType === "admin" 
+      const endpoint = loginType === "admin"
         ? `${BASE_URL}/api/admin/login`
         : `${BASE_URL}/api/user/login`;
 
@@ -41,7 +41,7 @@ export default function LoginPage() {
 
       // Store user info in localStorage
       localStorage.setItem("isAuthenticated", "true");
-      
+
       if (loginType === "admin") {
         localStorage.setItem("isAdmin", "true");
         localStorage.setItem("adminUser", JSON.stringify(data.admin));
@@ -67,22 +67,20 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setLoginType("user")}
-            className={`flex-1 py-2 rounded-lg transition ${
-              loginType === "user"
+            className={`flex-1 py-2 rounded-lg transition ${loginType === "user"
                 ? "bg-blue-600 text-white"
                 : "text-gray-600 hover:text-gray-800"
-            }`}
+              }`}
           >
             User
           </button>
           <button
             type="button"
             onClick={() => setLoginType("admin")}
-            className={`flex-1 py-2 rounded-lg transition ${
-              loginType === "admin"
+            className={`flex-1 py-2 rounded-lg transition ${loginType === "admin"
                 ? "bg-blue-600 text-white"
                 : "text-gray-600 hover:text-gray-800"
-            }`}
+              }`}
           >
             Admin
           </button>
@@ -124,7 +122,7 @@ export default function LoginPage() {
           )}
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          
+
 
           <button
             type="submit"
