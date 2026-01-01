@@ -529,177 +529,189 @@ export default function AdminFeedback() {
                   key={form.id}
                   className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-gradient-to-br from-white to-gray-50"
                 >
-                  {editingForm && editingForm.id === form.id ? (
-                    // ✅ Edit Mode
-                    <div>
-                      <input
-                        type="text"
-                        value={editingForm.title}
-                        onChange={(e) =>
-                          setEditingForm({
-                            ...editingForm,
-                            title: e.target.value,
-                          })
-                        }
-                        className="border p-2 rounded-lg w-full mb-2"
-                        placeholder="Form Title"
-                      />
-                      <textarea
-                        value={editingForm.description}
-                        onChange={(e) =>
-                          setEditingForm({
-                            ...editingForm,
-                            description: e.target.value,
-                          })
-                        }
-                        className="border p-2 rounded-lg w-full mb-3"
-                        rows="3"
-                        placeholder="Form Description"
-                      />
-                      
-                      {/* Custom Fields Section */}
-                      <div className="mb-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-semibold text-sm">Custom Fields</h4>
-                          <button
-                            type="button"
-                            onClick={() => handleAddField(form.id)}
-                            className="text-blue-600 text-xs hover:underline font-semibold"
-                          >
-                            + Add Field
-                          </button>
-                        </div>
-                        {editingForm.fields?.map((field) => (
-                          <div key={field.id} className="border p-3 mb-2 rounded bg-gray-50">
-                            {/* Field Name */}
-                            <div className="mb-2">
-                              <label className="text-xs font-semibold text-gray-600">
-                                Field Name
-                              </label>
-                              <input
-                                type="text"
-                                value={field.name}
-                                onChange={(e) =>
-                                  handleUpdateField(field.id, { name: e.target.value }, form.id)
-                                }
-                                className="border p-1 rounded w-full text-sm mb-1 bg-white"
-                                placeholder="e.g., Phone, Company"
-                              />
-                            </div>
-
-                            {/* Field Type */}
-                            <div className="mb-2">
-                              <label className="text-xs font-semibold text-gray-600">
-                                Field Type
-                              </label>
-                              <select
-                                value={field.type}
-                                onChange={(e) =>
-                                  handleUpdateField(field.id, { type: e.target.value }, form.id)
-                                }
-                                className="border p-1 rounded w-full text-sm bg-white"
-                              >
-                                <option value="text">Text</option>
-                                <option value="textarea">Textarea</option>
-                                <option value="email">Email</option>
-                                <option value="number">Number</option>
-                                <option value="select">Select (Dropdown)</option>
-                              </select>
-                            </div>
-
-                            {/* Options for Select Fields */}
-                            {field.type === "select" && (
-                              <div className="mb-2">
-                                <label className="text-xs font-semibold text-gray-600">
-                                  Options (comma-separated)
-                                </label>
-                                <input
-                                  type="text"
-                                  value={field.options?.join(", ") || ""}
-                                  onChange={(e) =>
-                                    handleUpdateField(
-                                      field.id,
-                                      { options: e.target.value.split(",").map((o) => o.trim()) },
-                                      form.id
-                                    )
-                                  }
-                                  className="border p-1 rounded w-full text-sm bg-white"
-                                  placeholder="Option1, Option2, Option3"
-                                />
-                              </div>
-                            )}
-
-                            {/* Required Toggle and Delete */}
-                            <div className="flex justify-between items-center">
-                              <label className="flex items-center text-xs gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={field.required || false}
-                                  onChange={(e) =>
-                                    handleUpdateField(
-                                      field.id,
-                                      { required: e.target.checked },
-                                      form.id
-                                    )
-                                  }
-                                  className="w-4 h-4"
-                                />
-                                <span className="text-gray-600">Required Field</span>
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveField(form.id, field.id)}
-                                className="text-red-600 text-xs hover:underline font-semibold"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={handleSaveEdit}
-                          className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 text-sm"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="bg-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-400 text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    // ✅ Normal Mode
-                    <>
-                      <h3 className="font-semibold text-lg text-gray-800 mb-1">
-                        {form.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-3">
-                        {form.description || "No description provided"}
-                      </p>
-                      <div className="flex justify-between">
-                        <button
-                          onClick={() => handleEditForm(form)}
-                          className="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 text-sm"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteForm(form.id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 text-sm"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  {/* ✅ Normal Mode */}
+                  <h3 className="font-semibold text-lg text-gray-800 mb-1">
+                    {form.title}
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-3">
+                    {form.description || "No description provided"}
+                  </p>
+                  <div className="flex justify-between">
+                    <button
+                      onClick={() => handleEditForm(form)}
+                      className="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteForm(form.id)}
+                      className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ✅ Edit Form Modal */}
+          {editingForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-gray-800">Edit Form</h3>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                <div className="p-6">
+                  <input
+                    type="text"
+                    value={editingForm.title}
+                    onChange={(e) =>
+                      setEditingForm({
+                        ...editingForm,
+                        title: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded-lg w-full mb-3"
+                    placeholder="Form Title"
+                  />
+                  <textarea
+                    value={editingForm.description}
+                    onChange={(e) =>
+                      setEditingForm({
+                        ...editingForm,
+                        description: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded-lg w-full mb-4"
+                    rows="3"
+                    placeholder="Form Description"
+                  />
+                  
+                  {/* Custom Fields Section */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-semibold text-base">Custom Fields</h4>
+                      <button
+                        type="button"
+                        onClick={() => handleAddField(editingForm.id)}
+                        className="text-blue-600 text-sm hover:underline font-semibold"
+                      >
+                        + Add Field
+                      </button>
+                    </div>
+                    {editingForm.fields?.map((field) => (
+                      <div key={field.id} className="border p-3 mb-3 rounded bg-gray-50">
+                        {/* Field Name */}
+                        <div className="mb-2">
+                          <label className="text-xs font-semibold text-gray-600">
+                            Field Name
+                          </label>
+                          <input
+                            type="text"
+                            value={field.name}
+                            onChange={(e) =>
+                              handleUpdateField(field.id, { name: e.target.value }, editingForm.id)
+                            }
+                            className="border p-1 rounded w-full text-sm mb-1 bg-white"
+                            placeholder="e.g., Phone, Company"
+                          />
+                        </div>
+
+                        {/* Field Type */}
+                        <div className="mb-2">
+                          <label className="text-xs font-semibold text-gray-600">
+                            Field Type
+                          </label>
+                          <select
+                            value={field.type}
+                            onChange={(e) =>
+                              handleUpdateField(field.id, { type: e.target.value }, editingForm.id)
+                            }
+                            className="border p-1 rounded w-full text-sm bg-white"
+                          >
+                            <option value="text">Text</option>
+                            <option value="textarea">Textarea</option>
+                            <option value="email">Email</option>
+                            <option value="number">Number</option>
+                            <option value="select">Select (Dropdown)</option>
+                          </select>
+                        </div>
+
+                        {/* Options for Select Fields */}
+                        {field.type === "select" && (
+                          <div className="mb-2">
+                            <label className="text-xs font-semibold text-gray-600">
+                              Options (comma-separated)
+                            </label>
+                            <input
+                              type="text"
+                              value={field.options?.join(", ") || ""}
+                              onChange={(e) =>
+                                handleUpdateField(
+                                  field.id,
+                                  { options: e.target.value.split(",").map((o) => o.trim()) },
+                                  editingForm.id
+                                )
+                              }
+                              className="border p-1 rounded w-full text-sm bg-white"
+                              placeholder="Option1, Option2, Option3"
+                            />
+                          </div>
+                        )}
+
+                        {/* Required Toggle and Delete */}
+                        <div className="flex justify-between items-center">
+                          <label className="flex items-center text-xs gap-2">
+                            <input
+                              type="checkbox"
+                              checked={field.required || false}
+                              onChange={(e) =>
+                                handleUpdateField(
+                                  field.id,
+                                  { required: e.target.checked },
+                                  editingForm.id
+                                )
+                              }
+                              className="w-4 h-4"
+                            />
+                            <span className="text-gray-600">Required Field</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveField(editingForm.id, field.id)}
+                            className="text-red-600 text-xs hover:underline font-semibold"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <button
+                      onClick={handleCancelEdit}
+                      className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </section>
