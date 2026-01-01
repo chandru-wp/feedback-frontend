@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 // Properly declare BASE_URL to avoid runtime ReferenceError which breaks the app.
 const BASE_URL = import.meta.env.VITE_API_URL;
@@ -10,8 +12,9 @@ export default function AdminFeedback() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [forms, setForms] = useState([]);
-  const [newForm, setNewForm] = useState({ title: "", description: "" });
+  const [newForm, setNewForm] = useState({ title: "", description: "", fields: [] });
   const [editingForm, setEditingForm] = useState(null);
+  const [showFieldManager, setShowFieldManager] = useState(null);
 
   // ✅ Fetch feedbacks from backend
   useEffect(() => {
@@ -49,52 +52,338 @@ export default function AdminFeedback() {
 
     fetchFeedbacks();
 
-    // ✅ Load form templates from localStorage
-    const savedForms = JSON.parse(localStorage.getItem("feedbackForms")) || [];
-    setForms(savedForms);
+    // ✅ Load form templates from backend
+    const fetchForms = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/forms`);
+        if (!res.ok) throw new Error("Failed to fetch forms");
+        const data = await res.json();
+        setForms(data);
+      } catch (error) {
+        console.error("❌ Error fetching forms:", error);
+        alert("Unable to load forms. Please check your connection.");
+        setForms([]);
+      }
+    };
+
+    fetchForms();
   }, [navigate]);
 
   // ✅ Logout
   const handleLogout = () => {
     localStorage.removeItem("isAdmin");
+    localStorage.removeItem("adminUser");
     navigate("/login");
   };
 
   // ✅ Add New Form
-  const handleAddForm = () => {
+  const handleAddForm = async () => {
     if (!newForm.title.trim()) return alert("Please enter a form title.");
-    const updated = [
-      ...forms,
-      { id: Date.now(), title: newForm.title, description: newForm.description },
-    ];
-    setForms(updated);
-    localStorage.setItem("feedbackForms", JSON.stringify(updated));
-    setNewForm({ title: "", description: "" });
+    
+    try {
+      const res = await fetch(`${BASE_URL}/api/forms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newForm.title,
+          description: newForm.description,
+          fields: newForm.fields || [],
+        }),
+      });
+      
+      if (!res.ok) throw new Error("Failed to create form");
+      const newFormData = await res.json();
+      setForms([...forms, newFormData]);
+      setNewForm({ title: "", description: "", fields: [] });
+    } catch (error) {
+      console.error("❌ Error creating form:", error);
+      alert("Failed to create form. Please try again.");
+    }
   };
 
   // ✅ Delete Form
-  const handleDeleteForm = (id) => {
-    const updated = forms.filter((form) => form.id !== id);
-    setForms(updated);
-    localStorage.setItem("feedbackForms", JSON.stringify(updated));
+  const handleDeleteForm = async (id) => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/forms/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (!res.ok) throw new Error("Failed to delete form");
+      const updated = forms.filter((form) => form.id !== id);
+      setForms(updated);
+    } catch (error) {
+      console.error("❌ Error deleting form:", error);
+      alert("Failed to delete form. Please try again.");
+    }
   };
 
   // ✅ Edit Form
   const handleEditForm = (form) => setEditingForm({ ...form });
 
   // ✅ Save Edited Form
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingForm.title.trim()) return alert("Please enter a title.");
-    const updated = forms.map((form) =>
-      form.id === editingForm.id ? editingForm : form
-    );
-    setForms(updated);
-    localStorage.setItem("feedbackForms", JSON.stringify(updated));
-    setEditingForm(null);
+    
+    try {
+      const res = await fetch(`${BASE_URL}/api/forms/${editingForm.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editingForm.title,
+          description: editingForm.description,
+          fields: editingForm.fields || [],
+        }),
+      });
+      
+      if (!res.ok) throw new Error("Failed to update form");
+      const updated = forms.map((form) =>
+        form.id === editingForm.id ? editingForm : form
+      );
+      setForms(updated);
+      setEditingForm(null);
+      alert("✅ Form updated successfully!");
+    } catch (error) {
+      console.error("❌ Error updating form:", error);
+      alert("Failed to update form. Please try again.");
+    }
   };
 
+  // ✅ Add Custom Field
+  const handleAddField = (formId) => {
+    const fieldName = prompt("Enter field name (e.g., Phone, Company):");
+    if (!fieldName) return;
+
+    const fieldType = prompt(
+      "Enter field type:\n- text (default)\n- textarea\n- email\n- number\n- select"
+    ) || "text";
+
+    let options = [];
+    if (fieldType === "select") {
+      const optionsInput = prompt(
+        "Enter options separated by commas (e.g., Option1, Option2, Option3):"
+      );
+      options = optionsInput ? optionsInput.split(",").map((o) => o.trim()) : [];
+    }
+
+    const newField = {
+      id: Date.now().toString(),
+      name: fieldName,
+      type: fieldType,
+      options: options,
+      required: confirm("Is this field required?"),
+    };
+
+    // Update form in state
+    const updatedForm = forms.find((f) => f.id === formId);
+    if (updatedForm) {
+      updatedForm.fields = [...(updatedForm.fields || []), newField];
+      setForms([...forms]);
+    }
+
+    if (editingForm && editingForm.id === formId) {
+      setEditingForm({
+        ...editingForm,
+        fields: [...(editingForm.fields || []), newField],
+      });
+    }
+  };
+
+  // ✅ Remove Custom Field
+  const handleRemoveField = (formId, fieldId) => {
+    const updatedForm = forms.find((f) => f.id === formId);
+    if (updatedForm) {
+      updatedForm.fields = (updatedForm.fields || []).filter(
+        (f) => f.id !== fieldId
+      );
+      setForms([...forms]);
+    }
+
+    if (editingForm && editingForm.id === formId) {
+      setEditingForm({
+        ...editingForm,
+        fields: (editingForm.fields || []).filter((f) => f.id !== fieldId),
+      });
+    }
+  };
+
+
   // ✅ Cancel Edit
-  const handleCancelEdit = () => setEditingForm(null);
+  const handleCancelEdit = () => {
+    setEditingForm(null);
+    setShowFieldManager(null);
+  };
+
+  // ✅ Update Field
+  const handleUpdateField = (fieldId, updates, formId) => {
+    if (showFieldManager === formId) {
+      setEditingForm({
+        ...editingForm,
+        fields: editingForm.fields.map((f) =>
+          f.id === fieldId ? { ...f, ...updates } : f
+        ),
+      });
+    } else {
+      setNewForm({
+        ...newForm,
+        fields: newForm.fields.map((f) =>
+          f.id === fieldId ? { ...f, ...updates } : f
+        ),
+      });
+    }
+  };
+
+  // ✅ Download single feedback as PDF
+  const handleDownloadSinglePDF = (fb) => {
+    try {
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(20);
+      doc.setTextColor(37, 99, 235);
+      doc.text("Feedback Report", 105, 20, { align: "center" });
+    
+    // Add form type
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Form Type: ${fb.formType}`, 20, 40);
+    
+    // Add a line separator
+    doc.setLineWidth(0.5);
+    doc.line(20, 45, 190, 45);
+    
+    // Add feedback details
+    doc.setFontSize(12);
+    let yPosition = 60;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text("Name:", 20, yPosition);
+    doc.setFont(undefined, 'normal');
+    const nameText = doc.splitTextToSize(fb.name, 140);
+    doc.text(nameText, 50, yPosition);
+    yPosition += 15 * nameText.length;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text("Email:", 20, yPosition);
+    doc.setFont(undefined, 'normal');
+    const emailText = doc.splitTextToSize(fb.email, 140);
+    doc.text(emailText, 50, yPosition);
+    yPosition += 15 * emailText.length;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text("Rating:", 20, yPosition);
+    doc.setFont(undefined, 'normal');
+    const ratingText = fb.rating > 0 
+      ? `${fb.rating}/5 - ${["Very Poor", "Poor", "Average", "Good", "Excellent"][fb.rating - 1]}`
+      : "Not rated";
+    doc.text(ratingText, 50, yPosition);
+    yPosition += 15;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text("Submitted:", 20, yPosition);
+    doc.setFont(undefined, 'normal');
+    doc.text(fb.createdAt, 50, yPosition);
+    yPosition += 20;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text("Comments:", 20, yPosition);
+    yPosition += 10;
+    doc.setFont(undefined, 'normal');
+    
+    // Wrap comments text
+    const splitComments = doc.splitTextToSize(fb.comments, 170);
+    doc.text(splitComments, 20, yPosition);
+    
+    // Add footer
+    const footerY = 270;
+    doc.setFontSize(10);
+    doc.setTextColor(128, 128, 128);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, footerY, { align: "center" });
+    
+    // Save the PDF
+    const fileName = `feedback_${fb.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    doc.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
+  // ✅ Download all feedbacks as PDF
+  const handleDownloadAllPDF = (formType, feedbacksList) => {
+    try {
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(20);
+      doc.setTextColor(37, 99, 235);
+      doc.text(`${formType} - All Feedbacks`, 105, 20, { align: "center" });
+      
+      // Add generation date
+      doc.setFontSize(10);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, 30, { align: "center" });
+      
+      // Create table data
+      const tableData = feedbacksList.map(fb => [
+        fb.name || "N/A",
+        fb.email || "N/A",
+        `${fb.rating}/5`,
+        (fb.comments || "").substring(0, 50) + (fb.comments && fb.comments.length > 50 ? '...' : ''),
+        fb.createdAt || "N/A"
+      ]);
+      
+      // Add table using autoTable
+      if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+          startY: 40,
+          head: [['Name', 'Email', 'Rating', 'Comments', 'Date']],
+          body: tableData,
+          theme: 'grid',
+          headStyles: { fillColor: [37, 99, 235] },
+          styles: { fontSize: 9, cellPadding: 3 },
+          columnStyles: {
+            0: { cellWidth: 30 },
+            1: { cellWidth: 40 },
+            2: { cellWidth: 20 },
+            3: { cellWidth: 60 },
+            4: { cellWidth: 35 }
+          }
+        });
+      } else {
+        // Fallback if autoTable is not available
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        let yPos = 50;
+        
+        feedbacksList.forEach((fb, index) => {
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+          
+          doc.setFont(undefined, 'bold');
+          doc.text(`${index + 1}. ${fb.name}`, 20, yPos);
+          doc.setFont(undefined, 'normal');
+          yPos += 7;
+          doc.text(`   Email: ${fb.email}`, 20, yPos);
+          yPos += 7;
+          doc.text(`   Rating: ${fb.rating}/5`, 20, yPos);
+          yPos += 7;
+          const comment = fb.comments.substring(0, 80) + (fb.comments.length > 80 ? '...' : '');
+          const splitComment = doc.splitTextToSize(`   ${comment}`, 170);
+          doc.text(splitComment, 20, yPos);
+          yPos += 7 * splitComment.length + 5;
+        });
+      }
+      
+      // Save the PDF
+      const fileName = `${formType.replace(/\s+/g, '_')}_all_feedbacks_${Date.now()}.pdf`;
+      doc.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
 
   // ✅ Clear all analytics data
   const handleClearAnalytics = async () => {
@@ -173,12 +462,20 @@ export default function AdminFeedback() {
           <h1 className="text-3xl font-bold text-blue-700">
             Admin Feedback Dashboard
           </h1>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
-          >
-            Logout
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate("/admin-management")}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
+            >
+              Manage Admins
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* ✅ Manage Feedback Forms */}
@@ -245,6 +542,7 @@ export default function AdminFeedback() {
                           })
                         }
                         className="border p-2 rounded-lg w-full mb-2"
+                        placeholder="Form Title"
                       />
                       <textarea
                         value={editingForm.description}
@@ -256,7 +554,110 @@ export default function AdminFeedback() {
                         }
                         className="border p-2 rounded-lg w-full mb-3"
                         rows="3"
+                        placeholder="Form Description"
                       />
+                      
+                      {/* Custom Fields Section */}
+                      <div className="mb-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-semibold text-sm">Custom Fields</h4>
+                          <button
+                            type="button"
+                            onClick={() => handleAddField(form.id)}
+                            className="text-blue-600 text-xs hover:underline font-semibold"
+                          >
+                            + Add Field
+                          </button>
+                        </div>
+                        {editingForm.fields?.map((field) => (
+                          <div key={field.id} className="border p-3 mb-2 rounded bg-gray-50">
+                            {/* Field Name */}
+                            <div className="mb-2">
+                              <label className="text-xs font-semibold text-gray-600">
+                                Field Name
+                              </label>
+                              <input
+                                type="text"
+                                value={field.name}
+                                onChange={(e) =>
+                                  handleUpdateField(field.id, { name: e.target.value }, form.id)
+                                }
+                                className="border p-1 rounded w-full text-sm mb-1 bg-white"
+                                placeholder="e.g., Phone, Company"
+                              />
+                            </div>
+
+                            {/* Field Type */}
+                            <div className="mb-2">
+                              <label className="text-xs font-semibold text-gray-600">
+                                Field Type
+                              </label>
+                              <select
+                                value={field.type}
+                                onChange={(e) =>
+                                  handleUpdateField(field.id, { type: e.target.value }, form.id)
+                                }
+                                className="border p-1 rounded w-full text-sm bg-white"
+                              >
+                                <option value="text">Text</option>
+                                <option value="textarea">Textarea</option>
+                                <option value="email">Email</option>
+                                <option value="number">Number</option>
+                                <option value="select">Select (Dropdown)</option>
+                              </select>
+                            </div>
+
+                            {/* Options for Select Fields */}
+                            {field.type === "select" && (
+                              <div className="mb-2">
+                                <label className="text-xs font-semibold text-gray-600">
+                                  Options (comma-separated)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={field.options?.join(", ") || ""}
+                                  onChange={(e) =>
+                                    handleUpdateField(
+                                      field.id,
+                                      { options: e.target.value.split(",").map((o) => o.trim()) },
+                                      form.id
+                                    )
+                                  }
+                                  className="border p-1 rounded w-full text-sm bg-white"
+                                  placeholder="Option1, Option2, Option3"
+                                />
+                              </div>
+                            )}
+
+                            {/* Required Toggle and Delete */}
+                            <div className="flex justify-between items-center">
+                              <label className="flex items-center text-xs gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={field.required || false}
+                                  onChange={(e) =>
+                                    handleUpdateField(
+                                      field.id,
+                                      { required: e.target.checked },
+                                      form.id
+                                    )
+                                  }
+                                  className="w-4 h-4"
+                                />
+                                <span className="text-gray-600">Required Field</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveField(form.id, field.id)}
+                                className="text-red-600 text-xs hover:underline font-semibold"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={handleSaveEdit}
@@ -329,9 +730,31 @@ export default function AdminFeedback() {
                 key={formType}
                 className="mb-12 border-t border-gray-200 pt-10 first:pt-0"
               >
-                <h2 className="text-2xl font-bold text-blue-700 mb-4">
-                  {formType} – Analytics
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-blue-700">
+                    {formType} – Analytics
+                  </h2>
+                  <button
+                    onClick={() => handleDownloadAllPDF(formType, feedbacks)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                      />
+                    </svg>
+                    Download All as PDF
+                  </button>
+                </div>
 
                 <div className="grid md:grid-cols-3 gap-6 mb-6">
                   {/* Average Rating */}
@@ -390,9 +813,29 @@ export default function AdminFeedback() {
                         </span>
                       </div>
                       <p className="text-gray-700 mb-3">{fb.comments}</p>
-                      <p className="text-xs text-gray-400 italic">
+                      <p className="text-xs text-gray-400 italic mb-3">
                         Submitted on {fb.createdAt}
                       </p>
+                      <button
+                        onClick={() => handleDownloadSinglePDF(fb)}
+                        className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition text-sm flex items-center gap-1 w-full justify-center"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                          />
+                        </svg>
+                        Download PDF
+                      </button>
                     </div>
                   ))}
                 </div>

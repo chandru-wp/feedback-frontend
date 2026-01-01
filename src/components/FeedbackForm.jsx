@@ -20,20 +20,35 @@ export default function FeedbackForm() {
 
   // ✅ Load forms (ensure one default exists)
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("feedbackForms")) || [];
+    const fetchForms = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/forms`);
+        if (!res.ok) throw new Error("Failed to fetch forms");
+        const data = await res.json();
 
-    // If no forms exist, create a default one
-    if (stored.length === 0) {
-      const defaultForm = {
-        id: Date.now(),
-        title: "General Feedback",
-        description: "Share your thoughts about our service or platform.",
-      };
-      localStorage.setItem("feedbackForms", JSON.stringify([defaultForm]));
-      setForms([defaultForm]);
-    } else {
-      setForms(stored);
-    }
+        if (data.length === 0) {
+          // Create default form if none exist
+          const defaultRes = await fetch(`${BASE_URL}/api/forms`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: "General Feedback",
+              description: "Share your thoughts about our service or platform.",
+            }),
+          });
+          const defaultForm = await defaultRes.json();
+          setForms([defaultForm]);
+        } else {
+          setForms(data);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching forms:", error);
+        alert("Unable to load forms. Please check your connection.");
+        setForms([]);
+      }
+    };
+
+    fetchForms();
   }, []);
 
   const handleChange = (e) => {
@@ -72,22 +87,24 @@ export default function FeedbackForm() {
     setSelectedForm(null);
   };
 
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate("/login");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100">
       {/* ✅ Navbar */}
       <nav className="bg-white/80 backdrop-blur-md shadow-md fixed top-0 left-0 w-full z-50 border-b border-blue-100">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-3">
-          <h1
-            onClick={() => navigate("/")}
-            className="text-2xl font-bold text-blue-700 cursor-pointer hover:text-blue-800 transition"
-          >
+          <h1 className="text-2xl font-bold text-blue-700">
             Feedback Portal
           </h1>
           <button
-            onClick={() => navigate("/login")}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            onClick={handleLogout}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
           >
-            Admin Login
+            Logout
           </button>
         </div>
       </nav>
@@ -221,6 +238,53 @@ export default function FeedbackForm() {
                   ></textarea>
                 </div>
 
+                {/* Custom Fields */}
+                {selectedForm?.fields && selectedForm.fields.length > 0 && (
+                  <div className="space-y-4 border-t pt-4">
+                    <h3 className="font-semibold text-gray-700">Additional Information</h3>
+                    {selectedForm.fields.map((field) => (
+                      <div key={field.id}>
+                        <label className="block text-gray-700 mb-1">
+                          {field.name}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </label>
+                        {field.type === "textarea" ? (
+                          <textarea
+                            name={`custom_${field.id}`}
+                            value={form[`custom_${field.id}`] || ""}
+                            onChange={handleChange}
+                            required={field.required}
+                            rows="3"
+                            className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                          />
+                        ) : field.type === "select" ? (
+                          <select
+                            name={`custom_${field.id}`}
+                            value={form[`custom_${field.id}`] || ""}
+                            onChange={handleChange}
+                            required={field.required}
+                            className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                          >
+                            <option value="">Select an option</option>
+                            {field.options?.map((opt, idx) => (
+                              <option key={idx} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type={field.type}
+                            name={`custom_${field.id}`}
+                            value={form[`custom_${field.id}`] || ""}
+                            onChange={handleChange}
+                            required={field.required}
+                            className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Buttons */}
                 <div className="flex justify-between items-center mt-6">
                   <button
@@ -230,12 +294,35 @@ export default function FeedbackForm() {
                   >
                     Back
                   </button>
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition"
-                  >
-                    Submit
-                  </button>
+                  <div className="flex gap-2">
+                    {/* <button
+                      type="button"
+                      onClick={handleDownloadPDF}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                        />
+                      </svg>
+                      Download PDF
+                    </button> */}
+                    <button
+                      type="submit"
+                      className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition"
+                    >
+                      Submit
+                    </button>
+                  </div>
                 </div>
               </form>
             ) : (
