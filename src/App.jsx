@@ -15,7 +15,12 @@ function ProtectedRoute({ children }) {
 // Protected Route for admin only
 function AdminRoute({ children }) {
   const isAdmin = localStorage.getItem("isAdmin");
-  return isAdmin ? children : <Navigate to="/login" replace />;
+  if (!isAdmin) {
+    // Redirect to feedback page if regular user tries to access admin routes
+    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    return isAuthenticated ? <Navigate to="/feedback" replace /> : <Navigate to="/login" replace />;
+  }
+  return children;
 }
 
 export default function App() {

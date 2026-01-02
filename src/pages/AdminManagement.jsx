@@ -6,6 +6,7 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 export default function AdminManagement() {
   const navigate = useNavigate();
   const [admins, setAdmins] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentAdmin, setCurrentAdmin] = useState(null);
@@ -13,6 +14,7 @@ export default function AdminManagement() {
   const [newAdmin, setNewAdmin] = useState({ username: "", password: "" });
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [editForm, setEditForm] = useState({ username: "", password: "" });
+  const [activeTab, setActiveTab] = useState("admins"); // "admins" or "users"
 
   useEffect(() => {
     // Check if user is admin
@@ -26,6 +28,7 @@ export default function AdminManagement() {
 
     setCurrentAdmin(adminUser);
     fetchAdmins();
+    fetchUsers();
   }, [navigate]);
 
   const fetchAdmins = async () => {
@@ -39,6 +42,18 @@ export default function AdminManagement() {
       setError("Failed to load admin users.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/user`);
+      if (!res.ok) throw new Error("Failed to fetch users");
+      const data = await res.json();
+      setUsers(data);
+    } catch (err) {
+      console.error("❌ Error fetching users:", err);
+      // Don't set error if only users fail, continue with admins
     }
   };
 
@@ -59,6 +74,26 @@ export default function AdminManagement() {
     } catch (error) {
       console.error("❌ Error deleting admin:", error);
       alert("Failed to delete admin. Please try again.");
+    }
+  };
+
+  const handleDeleteUser = async (id, username) => {
+    if (!window.confirm(`Are you sure you want to delete user "${username}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/user/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete user");
+      
+      setUsers(users.filter((user) => user.id !== id));
+      alert(`✅ User "${username}" deleted successfully!`);
+    } catch (error) {
+      console.error("❌ Error deleting user:", error);
+      alert("Failed to delete user. Please try again.");
     }
   };
 
@@ -215,21 +250,49 @@ export default function AdminManagement() {
           </p>
         </div>
 
-        {/* Add New Admin Button */}
-        <div className="mb-6 flex justify-between items-center">
-          <h2 className="text-2xl font-semibold text-gray-800">
-            All Admin Users ({admins.length})
-          </h2>
+        {/* Tabs for Admin and Users */}
+        <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            type="button"
+            onClick={() => setActiveTab("admins")}
+            className={`flex-1 py-2 px-4 rounded-lg transition font-semibold ${
+              activeTab === "admins"
+                ? "bg-blue-600 text-white"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
           >
-            {showAddForm ? "Cancel" : "+ Add New Admin"}
+            Admin Users ({admins.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("users")}
+            className={`flex-1 py-2 px-4 rounded-lg transition font-semibold ${
+              activeTab === "users"
+                ? "bg-blue-600 text-white"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            Regular Users ({users.length})
           </button>
         </div>
 
+        {/* Add New Admin Button */}
+        {activeTab === "admins" && (
+          <div className="mb-6 flex justify-between items-center">
+            <h2 className="text-2xl font-semibold text-gray-800">
+              All Admin Users
+            </h2>
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              {showAddForm ? "Cancel" : "+ Add New Admin"}
+            </button>
+          </div>
+        )}
+
         {/* Add Admin Form */}
-        {showAddForm && (
+        {activeTab === "admins" && showAddForm && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               Create New Admin
@@ -274,114 +337,170 @@ export default function AdminManagement() {
         )}
 
         {/* Admin List */}
-        {admins.length === 0 ? (
-          <p className="text-gray-600 text-center py-10">
-            No admin users found.
-          </p>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {admins.map((admin) => (
-              <div
-                key={admin.id}
-                className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-gradient-to-br from-white to-gray-50"
-              >
-                {editingAdmin === admin.id ? (
-                  // Edit Mode
-                  <form onSubmit={handleUpdateAdmin} className="space-y-3">
-                    <div>
-                      <label className="block text-gray-700 text-sm mb-1">
-                        Username
-                      </label>
-                      <input
-                        type="text"
-                        value={editForm.username}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, username: e.target.value })
-                        }
-                        required
-                        minLength={3}
-                        className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 text-sm mb-1">
-                        New Password (leave blank to keep current)
-                      </label>
-                      <input
-                        type="password"
-                        value={editForm.password}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, password: e.target.value })
-                        }
-                        minLength={6}
-                        className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
-                        placeholder="Enter new password"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        className="flex-1 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 text-sm transition"
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        className="flex-1 bg-gray-300 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-400 text-sm transition"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  // View Mode
-                  <>
+        {activeTab === "admins" && (
+          <>
+            {admins.length === 0 ? (
+              <p className="text-gray-600 text-center py-10">
+                No admin users found.
+              </p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {admins.map((admin) => (
+                  <div
+                    key={admin.id}
+                    className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-gradient-to-br from-white to-gray-50"
+                  >
+                    {editingAdmin === admin.id ? (
+                      // Edit Mode
+                      <form onSubmit={handleUpdateAdmin} className="space-y-3">
+                        <div>
+                          <label className="block text-gray-700 text-sm mb-1">
+                            Username
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.username}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, username: e.target.value })
+                            }
+                            required
+                            minLength={3}
+                            className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-sm mb-1">
+                            New Password (leave blank to keep current)
+                          </label>
+                          <input
+                            type="password"
+                            value={editForm.password}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, password: e.target.value })
+                            }
+                            minLength={6}
+                            className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
+                            placeholder="Enter new password"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            className="flex-1 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 text-sm transition"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className="flex-1 bg-gray-300 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-400 text-sm transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      // View Mode
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                              {admin.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg text-gray-800">
+                                {admin.username}
+                              </h3>
+                              {admin.id === currentAdmin?.id && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-gray-500 mb-3">
+                          Created: {new Date(admin.createdAt).toLocaleDateString()}
+                        </p>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditAdmin(admin)}
+                            className="flex-1 bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 text-sm transition"
+                          >
+                            Edit
+                          </button>
+                          {admin.id !== currentAdmin?.id && (
+                            <button
+                              onClick={() =>
+                                handleDeleteAdmin(admin.id, admin.username)
+                              }
+                              className="flex-1 bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600 text-sm transition"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Regular Users List */}
+        {activeTab === "users" && (
+          <>
+            {users.length === 0 ? (
+              <p className="text-gray-600 text-center py-10">
+                No regular users found.
+              </p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-gradient-to-br from-green-50 to-white"
+                  >
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
-                          {admin.username.charAt(0).toUpperCase()}
+                        <div className="w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                          {user.username.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <h3 className="font-semibold text-lg text-gray-800">
-                            {admin.username}
+                            {user.username}
                           </h3>
-                          {admin.id === currentAdmin?.id && (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                              You
-                            </span>
-                          )}
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                            User
+                          </span>
                         </div>
                       </div>
                     </div>
 
+                    <p className="text-sm text-gray-600 mb-2">
+                      <span className="font-semibold">Email:</span> {user.email || "N/A"}
+                    </p>
                     <p className="text-sm text-gray-500 mb-3">
-                      Created: {new Date(admin.createdAt).toLocaleDateString()}
+                      Created: {new Date(user.createdAt).toLocaleDateString()}
                     </p>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditAdmin(admin)}
-                        className="flex-1 bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 text-sm transition"
-                      >
-                        Edit
-                      </button>
-                      {admin.id !== currentAdmin?.id && (
-                        <button
-                          onClick={() =>
-                            handleDeleteAdmin(admin.id, admin.username)
-                          }
-                          className="flex-1 bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600 text-sm transition"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
+                    <button
+                      onClick={() =>
+                        handleDeleteUser(user.id, user.username)
+                      }
+                      className="w-full bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600 text-sm transition"
+                    >
+                      Delete User
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
