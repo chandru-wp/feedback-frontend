@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -39,6 +39,9 @@ export default function LoginPage() {
         return;
       }
 
+      // Clear any previous session data
+      localStorage.clear();
+      
       // Store user info in localStorage
       localStorage.setItem("isAuthenticated", "true");
 
@@ -58,7 +61,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-100 px-4">
       <div className="bg-white p-8 rounded-2xl shadow-2xl text-center w-full max-w-sm">
         <h2 className="text-3xl font-bold mb-6 text-gray-800">Login</h2>
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 // Use a properly declared constant. Assigning to an undeclared variable
 // (e.g. `BASE_URL = ...`) throws in strict mode and will stop the app from loading.
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export default function FeedbackForm() {
   const navigate = useNavigate();
@@ -17,6 +17,18 @@ export default function FeedbackForm() {
   });
   const [hovered, setHovered] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [profileForm, setProfileForm] = useState({ username: "", password: "", email: "" });
+  const [profileError, setProfileError] = useState("");
+  const [profileSuccess, setProfileSuccess] = useState("");
+
+  // ✅ Load current user
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("currentUser") || "{}");
+    setCurrentUser(user);
+    setProfileForm({ username: user.username || "", password: "", email: user.email || "" });
+  }, []);
 
   // ✅ Load forms (ensure one default exists)
   useEffect(() => {
@@ -92,22 +104,114 @@ export default function FeedbackForm() {
     navigate("/login");
   };
 
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setProfileError("");
+    setProfileSuccess("");
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/user/${currentUser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileForm),
+      });
+
+      if (!res.ok) throw new Error("Failed to update profile");
+      
+      const updated = await res.json();
+      localStorage.setItem("currentUser", JSON.stringify(updated));
+      setCurrentUser(updated);
+      setProfileSuccess("✅ Profile updated successfully!");
+      setTimeout(() => setShowProfile(false), 2000);
+    } catch (error) {
+      console.error("❌ Error updating profile:", error);
+      setProfileError("Failed to update profile. Please try again.");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-indigo-100">
       {/* ✅ Navbar */}
       <nav className="bg-white/80 backdrop-blur-md shadow-md fixed top-0 left-0 w-full z-50 border-b border-blue-100">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-3">
           <h1 className="text-2xl font-bold text-blue-700">
             Feedback Portal
           </h1>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
-          >
-            Logout
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowProfile(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              My Profile
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </nav>
+
+      {/* ✅ Profile Modal */}
+      {showProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">Edit Profile</h2>
+            <form onSubmit={handleProfileUpdate} className="space-y-4">
+              <div>
+                <label className="block text-gray-700 mb-1">Username</label>
+                <input
+                  type="text"
+                  value={profileForm.username}
+                  onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
+                  required
+                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-1">Email (optional)</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-1">New Password (leave blank to keep current)</label>
+                <input
+                  type="password"
+                  value={profileForm.password}
+                  onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                  placeholder="Enter new password"
+                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+              
+              {profileError && <p className="text-red-500 text-sm">{profileError}</p>}
+              {profileSuccess && <p className="text-green-500 text-sm">{profileSuccess}</p>}
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProfile(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ✅ Main Section */}
       <div className="pt-28 px-6 flex flex-col items-center">
@@ -137,7 +241,7 @@ export default function FeedbackForm() {
                         {f.description || "No description provided."}
                       </p>
                     </div>
-                    <button className="bg-gradient-to-r from-blue-600 to-indigo-500 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-xl hover:scale-105 transition-all">
+                    <button className="bg-linear-to-r from-blue-600 to-indigo-500 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-xl hover:scale-105 transition-all">
                       Fill Form
                     </button>
                   </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export default function AdminManagement() {
   const navigate = useNavigate();
@@ -14,6 +14,8 @@ export default function AdminManagement() {
   const [newAdmin, setNewAdmin] = useState({ username: "", password: "" });
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [editForm, setEditForm] = useState({ username: "", password: "" });
+  const [editingUser, setEditingUser] = useState(null);
+  const [userEditForm, setUserEditForm] = useState({ username: "", password: "", email: "" });
   const [activeTab, setActiveTab] = useState("admins"); // "admins" or "users"
 
   useEffect(() => {
@@ -190,6 +192,50 @@ export default function AdminManagement() {
     setEditForm({ username: "", password: "" });
   };
 
+  const handleEditUser = (user) => {
+    setEditingUser(user.id);
+    setUserEditForm({ 
+      username: user.username, 
+      password: "", 
+      email: user.email || "" 
+    });
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const res = await fetch(`${BASE_URL}/api/user/${editingUser}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userEditForm),
+      });
+
+      if (!res.ok) throw new Error("Failed to update user");
+      
+      const data = await res.json();
+      setUsers(
+        users.map((user) =>
+          user.id === editingUser
+            ? { ...user, username: data.username, email: data.email }
+            : user
+        )
+      );
+
+      setEditingUser(null);
+      setUserEditForm({ username: "", password: "", email: "" });
+      alert(`✅ User updated successfully!`);
+    } catch (error) {
+      console.error("❌ Error updating user:", error);
+      alert("Failed to update user. Please try again.");
+    }
+  };
+
+  const handleCancelUserEdit = () => {
+    setEditingUser(null);
+    setUserEditForm({ username: "", password: "", email: "" });
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("isAdmin");
     localStorage.removeItem("adminUser");
@@ -348,7 +394,7 @@ export default function AdminManagement() {
                 {admins.map((admin) => (
                   <div
                     key={admin.id}
-                    className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-gradient-to-br from-white to-gray-50"
+                    className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-linear-to-br from-white to-gray-50"
                   >
                     {editingAdmin === admin.id ? (
                       // Edit Mode
@@ -463,39 +509,102 @@ export default function AdminManagement() {
                 {users.map((user) => (
                   <div
                     key={user.id}
-                    className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-gradient-to-br from-green-50 to-white"
+                    className="border border-gray-200 rounded-xl p-5 shadow hover:shadow-lg transition bg-linear-to-br from-green-50 to-white"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
-                          {user.username.charAt(0).toUpperCase()}
+                    {editingUser === user.id ? (
+                      // Edit Mode
+                      <form onSubmit={handleUpdateUser}>
+                        <h4 className="font-semibold text-gray-700 mb-3">Edit User</h4>
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            value={userEditForm.username}
+                            onChange={(e) =>
+                              setUserEditForm({ ...userEditForm, username: e.target.value })
+                            }
+                            placeholder="Username"
+                            required
+                            className="w-full border rounded p-2 text-sm"
+                          />
+                          <input
+                            type="email"
+                            value={userEditForm.email}
+                            onChange={(e) =>
+                              setUserEditForm({ ...userEditForm, email: e.target.value })
+                            }
+                            placeholder="Email (optional)"
+                            className="w-full border rounded p-2 text-sm"
+                          />
+                          <input
+                            type="password"
+                            value={userEditForm.password}
+                            onChange={(e) =>
+                              setUserEditForm({ ...userEditForm, password: e.target.value })
+                            }
+                            placeholder="New Password (optional)"
+                            className="w-full border rounded p-2 text-sm"
+                          />
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-lg text-gray-800">
-                            {user.username}
-                          </h3>
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                            User
-                          </span>
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            type="submit"
+                            className="flex-1 bg-green-500 text-white px-3 py-2 rounded-md hover:bg-green-600 text-sm"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelUserEdit}
+                            className="flex-1 bg-gray-400 text-white px-3 py-2 rounded-md hover:bg-gray-500 text-sm"
+                          >
+                            Cancel
+                          </button>
                         </div>
-                      </div>
-                    </div>
+                      </form>
+                    ) : (
+                      // View Mode
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                              {user.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg text-gray-800">
+                                {user.username}
+                              </h3>
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                User
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-                    <p className="text-sm text-gray-600 mb-2">
-                      <span className="font-semibold">Email:</span> {user.email || "N/A"}
-                    </p>
-                    <p className="text-sm text-gray-500 mb-3">
-                      Created: {new Date(user.createdAt).toLocaleDateString()}
-                    </p>
+                        <p className="text-sm text-gray-600 mb-2">
+                          <span className="font-semibold">Email:</span> {user.email || "N/A"}
+                        </p>
+                        <p className="text-sm text-gray-500 mb-3">
+                          <span className="font-semibold">Created:</span> {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
+                        </p>
 
-                    <button
-                      onClick={() =>
-                        handleDeleteUser(user.id, user.username)
-                      }
-                      className="w-full bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600 text-sm transition"
-                    >
-                      Delete User
-                    </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditUser(user)}
+                            className="flex-1 bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 text-sm transition"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDeleteUser(user.id, user.username)
+                            }
+                            className="flex-1 bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600 text-sm transition"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
